@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' show Size;
 import 'package:camera/camera.dart';
+import 'package:flutter/foundation.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import '../constants/exercise_rules.dart';
 
@@ -13,7 +14,7 @@ class PoseService {
     _detector = PoseDetector(
       options: PoseDetectorOptions(
         mode: PoseDetectionMode.stream,
-        model: PoseDetectionModel.accurate,
+        model: PoseDetectionModel.base,
       ),
     );
   }
@@ -22,6 +23,9 @@ class PoseService {
 
   // EMA smoothed landmark positions: landmarkType -> (x, y, z)
   final Map<PoseLandmarkType, _SmoothedPoint> _smoothed = {};
+
+  int _frameCount = 0;
+  bool _errorLogged = false;
 
   bool _isClosed = false;
 
@@ -34,13 +38,32 @@ class PoseService {
     if (_isClosed) return null;
 
     final inputImage = _toInputImage(image, rotation);
+
+    _frameCount++;
+    if (_frameCount % 90 == 1) {
+      debugPrint('[PoseService] frame=$_frameCount '
+          'fmt=${image.format.raw} '
+          'planes=${image.planes.length} '
+          'size=${image.width}x${image.height} '
+          'yStride=${image.planes[0].bytesPerRow} '
+          'yLen=${image.planes[0].bytes.length} '
+          '${image.planes.length > 2 ? "uvStride=${image.planes[1].bytesPerRow} vLen=${image.planes[2].bytes.length}" : ""} '
+          'pixelStrides=${image.planes.map((p) => p.bytesPerPixel).toList()} '
+          'rotation=$rotation '
+          'inputImageNull=${inputImage == null}');
+    }
+
     if (inputImage == null) return null;
 
     final poses = await _detector.processImage(inputImage);
+
+    if (_frameCount % 90 == 1) {
+      debugPrint('[PoseService] poses detected: ${poses.length}');
+    }
+
     if (poses.isEmpty) return null;
 
-    final pose = poses.first;
-    return _applyEma(pose);
+    return _applyEma(poses.first);
   }
 
   /// Convert [CameraImage] to [InputImage] for MLKit.
@@ -73,38 +96,59 @@ class PoseService {
         );
       }
       return null;
-    } catch (_) {
+    } catch (e, stack) {
+      if (!_errorLogged) {
+        _errorLogged = true;
+        debugPrint('[PoseService] _toInputImage EXCEPTION: $e\n$stack');
+      }
       return null;
     }
   }
 
   /// Convert Android YUV_420_888 to NV21 byte array.
+  /// Handles both interleaved (pixelStride=2) and planar (pixelStride=1) UV.
   Uint8List _yuv420ToNv21(CameraImage image) {
     final yPlane = image.planes[0];
     final uPlane = image.planes[1];
     final vPlane = image.planes[2];
 
-    final ySize = image.width * image.height;
-    final uvSize = image.width * image.height ~/ 2;
+    final width = image.width;
+    final height = image.height;
+    final ySize = width * height;
+    final uvSize = width * height ~/ 2;
     final nv21 = Uint8List(ySize + uvSize);
 
-    // Copy Y plane
-    int nv21Index = 0;
-    for (int row = 0; row < image.height; row++) {
-      final rowOffset = row * yPlane.bytesPerRow;
-      for (int col = 0; col < image.width; col++) {
-        nv21[nv21Index++] = yPlane.bytes[rowOffset + col];
-      }
+    // Copy Y plane — respect row stride (may have padding)
+    int outIdx = 0;
+    for (int row = 0; row < height; row++) {
+      final srcOffset = row * yPlane.bytesPerRow;
+      nv21.setRange(outIdx, outIdx + width, yPlane.bytes, srcOffset);
+      outIdx += width;
     }
 
-    // Interleave V and U planes for NV21 (V first)
+    // Build interleaved VU plane for NV21
+    final uvPixelStride = uPlane.bytesPerPixel ?? 1;
     final uvRowStride = uPlane.bytesPerRow;
-    final uvPixelStride = uPlane.bytesPerPixel ?? 2;
-    for (int row = 0; row < image.height ~/ 2; row++) {
-      for (int col = 0; col < image.width ~/ 2; col++) {
-        final uvOffset = row * uvRowStride + col * uvPixelStride;
-        nv21[nv21Index++] = vPlane.bytes[uvOffset]; // V
-        nv21[nv21Index++] = uPlane.bytes[uvOffset]; // U
+
+    if (uvPixelStride == 2) {
+      // Already interleaved (most devices): U and V share the same buffer
+      // offset by 1 byte.  Copy V-plane bytes which already contain VUVU...
+      // Some devices (e.g. Xiaomi vayu) report the V buffer 1 byte short of
+      // the last full row — clamp to avoid RangeError on the last iteration.
+      for (int row = 0; row < height ~/ 2; row++) {
+        final srcOffset = row * uvRowStride;
+        final copyLen = (vPlane.bytes.length - srcOffset).clamp(0, width);
+        if (copyLen > 0) nv21.setRange(outIdx, outIdx + copyLen, vPlane.bytes, srcOffset);
+        outIdx += width;
+      }
+    } else {
+      // Planar (pixelStride == 1): U and V are separate buffers, interleave manually.
+      for (int row = 0; row < height ~/ 2; row++) {
+        for (int col = 0; col < width ~/ 2; col++) {
+          final uvOffset = row * uvRowStride + col;
+          nv21[outIdx++] = vPlane.bytes[uvOffset]; // V
+          nv21[outIdx++] = uPlane.bytes[uvOffset]; // U
+        }
       }
     }
 

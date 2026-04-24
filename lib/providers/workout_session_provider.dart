@@ -150,7 +150,7 @@ class WorkoutSessionProvider extends ChangeNotifier {
 
       final formatGroup = Platform.isIOS
           ? ImageFormatGroup.bgra8888
-          : ImageFormatGroup.nv21;
+          : ImageFormatGroup.yuv420;
 
       final controller = CameraController(
         camera,
@@ -254,7 +254,10 @@ class WorkoutSessionProvider extends ChangeNotifier {
     final rotation = _getInputImageRotation();
     _poseService?.processFrame(image, rotation).then((pose) {
       if (pose == null) {
-        _currentPose = null;
+        if (_currentPose != null) {
+          _currentPose = null;
+          notifyListeners();
+        }
         _isBusy = false;
         return;
       }
