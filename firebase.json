@@ -1,10 +1,1 @@
-{
-  "firestore": {
-    "rules": "firestore.rules",
-    "indexes": "firestore.indexes.json"
-  },
-  "functions": {
-    "source": "functions",
-    "runtime": "nodejs20"
-  }
-}
+{"firestore":{"rules":"firestore.rules","indexes":"firestore.indexes.json"},"functions":{"source":"functions","runtime":"nodejs20"},"flutter":{"platforms":{"android":{"default":{"projectId":"gym-helper-89ba5","appId":"1:298543902249:android:b94c5726705e85ec05b638","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"gym-helper-89ba5","configurations":{"android":"1:298543902249:android:b94c5726705e85ec05b638","ios":"1:298543902249:ios:0186ef902820a35105b638","macos":"1:298543902249:ios:0186ef902820a35105b638","web":"1:298543902249:web:c9e52dc5b6a20e9f05b638","windows":"1:298543902249:web:e8645693a0edabb905b638"}}}}}}

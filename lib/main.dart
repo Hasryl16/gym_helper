@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 import 'app.dart';
 
 Future<void> main() async {
@@ -24,7 +25,9 @@ Future<void> main() async {
   // a real google-services.json / GoogleService-Info.plist.
   // Run `flutterfire configure` to set up real credentials.
   try {
-    await Firebase.initializeApp();
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
   } catch (e) {
     debugPrint('[GymHelper] Firebase init skipped: $e');
   }

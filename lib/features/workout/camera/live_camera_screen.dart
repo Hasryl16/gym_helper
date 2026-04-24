@@ -54,6 +54,11 @@ class _LiveCameraScreenState extends State<LiveCameraScreen> {
     if (mounted) context.go(RouteNames.workoutSummary);
   }
 
+  Future<void> _handleSwitchCamera() async {
+    final session = context.read<WorkoutSessionProvider>();
+    await session.switchCamera();
+  }
+
   @override
   Widget build(BuildContext context) {
     final session = context.watch<WorkoutSessionProvider>();
@@ -103,6 +108,7 @@ class _LiveCameraScreenState extends State<LiveCameraScreen> {
                     camera.value.previewSize?.width ?? 1,
                   ),
                   screenSize: MediaQuery.of(context).size,
+                  isFrontCamera: session.isFrontCamera,
                 ),
               ),
 
@@ -162,6 +168,45 @@ class _LiveCameraScreenState extends State<LiveCameraScreen> {
               right: 0,
               child: CueBanner(cue: session.activeCue),
             ),
+
+            // Camera flip button — bottom left
+            if (session.canSwitchCamera)
+              Positioned(
+                bottom: MediaQuery.of(context).padding.bottom + 24,
+                left: 20,
+                child: GestureDetector(
+                  onTap: session.isSwitchingCamera ? null : _handleSwitchCamera,
+                  child: AnimatedOpacity(
+                    opacity: session.isSwitchingCamera ? 0.4 : 1.0,
+                    duration: const Duration(milliseconds: 200),
+                    child: Container(
+                      width: 52,
+                      height: 52,
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.5),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.4),
+                          width: 1.5,
+                        ),
+                      ),
+                      child: session.isSwitchingCamera
+                          ? const Padding(
+                              padding: EdgeInsets.all(14),
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Icon(
+                              Icons.flip_camera_android_rounded,
+                              color: Colors.white,
+                              size: 24,
+                            ),
+                    ),
+                  ),
+                ),
+              ),
 
             // Stop FAB — bottom right
             Positioned(

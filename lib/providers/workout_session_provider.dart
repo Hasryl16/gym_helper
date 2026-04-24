@@ -44,6 +44,9 @@ class WorkoutSessionProvider extends ChangeNotifier {
   String? _errorMessage;
   bool _isBusy = false; // guard against concurrent frame processing
   Pose? _currentPose;
+  bool _isSwitchingCamera = false;
+  CameraLensDirection _activeLens = CameraLensDirection.back;
+  List<CameraDescription> _availableCameras = [];
 
   // Getters
   SessionState get sessionState => _sessionState;
@@ -60,6 +63,9 @@ class WorkoutSessionProvider extends ChangeNotifier {
       _cameraController?.value.isInitialized ?? false;
   Pose? get currentPose => _currentPose;
   bool get poseDetected => _currentPose != null;
+  bool get isFrontCamera => _activeLens == CameraLensDirection.front;
+  bool get isSwitchingCamera => _isSwitchingCamera;
+  bool get canSwitchCamera => _availableCameras.length > 1;
 
   // ---------------------------------------------------------------------------
   // Configuration
@@ -78,30 +84,70 @@ class WorkoutSessionProvider extends ChangeNotifier {
 
   /// Initialize the camera controller.
   Future<void> initCamera([List<CameraDescription>? cameras]) async {
-    final availableCams = cameras ?? await availableCameras();
+    _availableCameras = cameras ?? await availableCameras();
 
-    if (availableCams.isEmpty) {
+    if (_availableCameras.isEmpty) {
       _errorMessage = 'No camera available on this device.';
       notifyListeners();
       return;
     }
 
-    // Prefer back camera
-    final camera = availableCams.firstWhere(
+    // Prefer back camera on first init
+    final camera = _availableCameras.firstWhere(
       (c) => c.lensDirection == CameraLensDirection.back,
-      orElse: () => availableCams.first,
+      orElse: () => _availableCameras.first,
+    );
+    _activeLens = camera.lensDirection;
+
+    await _initWithCamera(camera);
+  }
+
+  /// Switch between front and back camera. Safe to call during an active session.
+  Future<void> switchCamera() async {
+    if (_isSwitchingCamera || _availableCameras.length < 2) return;
+
+    final targetLens = _activeLens == CameraLensDirection.back
+        ? CameraLensDirection.front
+        : CameraLensDirection.back;
+
+    final nextCamera = _availableCameras.firstWhere(
+      (c) => c.lensDirection == targetLens,
+      orElse: () => _availableCameras.first,
     );
 
+    _isSwitchingCamera = true;
+    notifyListeners();
+
+    // Pause frame processing and stop the stream if session is active
+    _isBusy = true;
+    final wasActive = _sessionState == SessionState.active;
+    if (wasActive) {
+      try {
+        await _cameraController?.stopImageStream();
+      } catch (_) {}
+    }
+
+    _activeLens = nextCamera.lensDirection;
+    await _initWithCamera(nextCamera);
+
+    // Resume streaming if session was active
+    if (wasActive && _cameraController != null && _cameraController!.value.isInitialized) {
+      _sessionState = SessionState.active;
+      await _cameraController!.startImageStream(_onFrame);
+    }
+
+    _isBusy = false;
+    _isSwitchingCamera = false;
+    notifyListeners();
+  }
+
+  Future<void> _initWithCamera(CameraDescription camera) async {
     try {
-      // Close existing PoseService before disposing the camera, so in-flight
-      // ML Kit calls can complete/cancel rather than using a dead image stream.
       await _poseService?.close();
       _poseService = null;
-
-      // Dispose existing camera controller if any.
       await _cameraController?.dispose();
+      _cameraController = null;
 
-      // iOS expects BGRA8888; Android uses NV21 (planar YUV).
       final formatGroup = Platform.isIOS
           ? ImageFormatGroup.bgra8888
           : ImageFormatGroup.nv21;
@@ -116,7 +162,9 @@ class WorkoutSessionProvider extends ChangeNotifier {
       await controller.initialize();
       _cameraController = controller;
       _poseService = PoseService();
-      _sessionState = SessionState.positionCheck;
+      if (_sessionState != SessionState.active) {
+        _sessionState = SessionState.positionCheck;
+      }
       _errorMessage = null;
       notifyListeners();
     } catch (e) {
