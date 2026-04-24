@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../../core/models/exercise_type.dart';
 import '../../../providers/workout_session_provider.dart';
+import '../../../routing/route_names.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/theme/app_spacing.dart';
 import '../../../shared/widgets/primary_button.dart';
@@ -24,7 +25,7 @@ class PositionGuideScreen extends StatelessWidget {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new, size: 18),
-          onPressed: () => context.go('/workout'),
+          onPressed: () => context.go(RouteNames.workout),
         ),
         title: Text(
           'SETUP',

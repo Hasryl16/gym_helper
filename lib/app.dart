@@ -46,8 +46,15 @@ class _GymHelperAppState extends State<GymHelperApp> {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider<AppAuthProvider>.value(value: _authProvider),
-        ChangeNotifierProvider<OnboardingProvider>.value(
-          value: _onboardingProvider,
+        // Reload onboarding state whenever the auth UID changes so that the
+        // key used for SharedPreferences is always scoped to the active user.
+        ChangeNotifierProxyProvider<AppAuthProvider, OnboardingProvider>(
+          create: (_) => _onboardingProvider,
+          update: (_, auth, onboardingProv) {
+            final provider = onboardingProv ?? _onboardingProvider;
+            provider.loadForUser(auth.user?.uid);
+            return provider;
+          },
         ),
         ChangeNotifierProxyProvider<AppAuthProvider, UserProvider>(
           create: (_) => _userProvider,

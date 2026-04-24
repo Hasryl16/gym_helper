@@ -1,0 +1,31 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /users/{uid} {
+      allow read:   if request.auth != null && request.auth.uid == uid;
+      allow create: if request.auth != null && request.auth.uid == uid;
+      allow update: if request.auth != null && request.auth.uid == uid;
+      allow delete: if false;
+
+      match /sessions/{sessionId} {
+        allow read:   if request.auth != null && request.auth.uid == uid;
+        allow create: if request.auth != null && request.auth.uid == uid
+                       && request.resource.data.reportStatus == 'pending'
+                       && request.resource.data.exercise in ['pushup', 'situp', 'pullup']
+                       && request.resource.data.totalReps is int;
+        allow update: if false;
+        allow delete: if request.auth != null && request.auth.uid == uid;
+
+        match /report/{rid} {
+          allow read:  if request.auth != null && request.auth.uid == uid;
+          allow write: if false;
+        }
+      }
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

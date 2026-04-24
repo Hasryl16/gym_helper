@@ -32,6 +32,10 @@ class AppRouter {
         final onboardingComplete = onboardingProvider.completed;
         final location = state.matchedLocation;
 
+        // Don't redirect while onboarding state is still loading from
+        // SharedPreferences — avoids a brief flash to /onboarding/level.
+        if (!onboardingProvider.initialized) return null;
+
         // Still resolving auth state
         if (authStatus == AuthStatus.unknown) return null;
 

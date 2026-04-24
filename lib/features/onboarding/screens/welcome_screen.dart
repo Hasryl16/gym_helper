@@ -170,8 +170,8 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                   // 3 — Feature pills
                   _animated(
                     3,
-                    Row(
-                      children: const [
+                    const Row(
+                      children: [
                         _FeaturePill('MediaPipe Pose'),
                         SizedBox(width: AppSpacing.sm),
                         _FeaturePill('AI Reports'),

@@ -126,17 +126,19 @@ class _LevelCardState extends State<LevelCard>
               AnimatedOpacity(
                 duration: const Duration(milliseconds: 200),
                 opacity: widget.isSelected ? 1.0 : 0.0,
-                child: Container(
+                child: const SizedBox(
                   width: 20,
                   height: 20,
-                  decoration: BoxDecoration(
-                    color: AppColors.accentPrimary,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.check,
-                    color: AppColors.bgBase,
-                    size: 13,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: AppColors.accentPrimary,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.check,
+                      color: AppColors.bgBase,
+                      size: 13,
+                    ),
                   ),
                 ),
               ),

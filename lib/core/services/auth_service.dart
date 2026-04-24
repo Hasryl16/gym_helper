@@ -105,7 +105,7 @@ class AuthService {
     } on FirebaseAuthException catch (e) {
       throw AuthException.fromFirebaseCode(e.code);
     } catch (e) {
-      throw AuthException(message: 'Google sign-in failed. Please try again.');
+      throw const AuthException(message: 'Google sign-in failed. Please try again.');
     }
   }
 

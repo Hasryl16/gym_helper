@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../../providers/workout_session_provider.dart';
+import '../../../routing/route_names.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/theme/app_spacing.dart';
 import '../../../shared/widgets/primary_button.dart';
@@ -30,9 +31,9 @@ class SessionSummaryScreen extends StatelessWidget {
     final summary = session.lastSession;
 
     if (summary == null) {
-      return Scaffold(
+      return const Scaffold(
         backgroundColor: AppColors.bgBase,
-        body: const Center(
+        body: Center(
           child: CircularProgressIndicator(color: AppColors.accentPrimary),
         ),
       );
@@ -156,7 +157,7 @@ class SessionSummaryScreen extends StatelessWidget {
                 onPressed: () async {
                   await session.saveSession();
                   if (context.mounted) {
-                    context.go('/reports');
+                    context.go(RouteNames.reports);
                     session.resetSession();
                   }
                 },
@@ -169,7 +170,7 @@ class SessionSummaryScreen extends StatelessWidget {
                 label: 'Discard',
                 onPressed: () {
                   session.resetSession();
-                  context.go('/workout');
+                  context.go(RouteNames.workout);
                 },
               ),
 

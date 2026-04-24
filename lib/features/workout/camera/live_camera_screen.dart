@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/workout_session_provider.dart';
+import '../../../routing/route_names.dart';
 import '../../../shared/theme/app_colors.dart';
 import 'widgets/cue_banner.dart';
 import 'widgets/form_score_hud.dart';
@@ -19,6 +20,10 @@ class LiveCameraScreen extends StatefulWidget {
 }
 
 class _LiveCameraScreenState extends State<LiveCameraScreen> {
+  // Guard so that navigation to the summary screen only fires once, even if
+  // the widget rebuilds while the session is in the summary state.
+  bool _navigatedToSummary = false;
+
   @override
   void initState() {
     super.initState();
@@ -46,7 +51,7 @@ class _LiveCameraScreenState extends State<LiveCameraScreen> {
   Future<void> _handleStop() async {
     final session = context.read<WorkoutSessionProvider>();
     await session.stopSession();
-    if (mounted) context.go('/workout/position-guide/live/summary');
+    if (mounted) context.go(RouteNames.workoutSummary);
   }
 
   @override
@@ -54,10 +59,13 @@ class _LiveCameraScreenState extends State<LiveCameraScreen> {
     final session = context.watch<WorkoutSessionProvider>();
     final camera = session.cameraController;
 
-    // Navigate to summary when session transitions to summary state
-    if (session.sessionState == SessionState.summary) {
+    // Navigate to summary when session transitions to summary state.
+    // The _navigatedToSummary guard ensures this fires at most once,
+    // even across multiple rebuilds while the state is still summary.
+    if (!_navigatedToSummary && session.sessionState == SessionState.summary) {
+      _navigatedToSummary = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) context.go('/workout/position-guide/live/summary');
+        if (mounted) context.go(RouteNames.workoutSummary);
       });
     }
 

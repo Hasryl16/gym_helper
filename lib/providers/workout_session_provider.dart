@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
@@ -92,14 +93,24 @@ class WorkoutSessionProvider extends ChangeNotifier {
     );
 
     try {
-      // Dispose existing controller if any
+      // Close existing PoseService before disposing the camera, so in-flight
+      // ML Kit calls can complete/cancel rather than using a dead image stream.
+      await _poseService?.close();
+      _poseService = null;
+
+      // Dispose existing camera controller if any.
       await _cameraController?.dispose();
+
+      // iOS expects BGRA8888; Android uses NV21 (planar YUV).
+      final formatGroup = Platform.isIOS
+          ? ImageFormatGroup.bgra8888
+          : ImageFormatGroup.nv21;
 
       final controller = CameraController(
         camera,
         ResolutionPreset.medium,
         enableAudio: false,
-        imageFormatGroup: ImageFormatGroup.yuv420,
+        imageFormatGroup: formatGroup,
       );
 
       await controller.initialize();
@@ -269,9 +280,14 @@ class WorkoutSessionProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    _isBusy = true; // prevent new frames from being processed
     _cameraController?.stopImageStream().catchError((_) {});
     _cameraController?.dispose();
     _poseService?.close();
+    _cameraController = null;
+    _poseService = null;
+    _sessionRecorder = null;
+    _repCounter = null;
     super.dispose();
   }
 }

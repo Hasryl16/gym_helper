@@ -16,8 +16,8 @@ abstract final class RouteNames {
   static const String home = '/home';
   static const String workout = '/workout';
   static const String workoutPositionGuide = '/workout/position-guide';
-  static const String workoutLive = '/workout/live';
-  static const String workoutSummary = '/workout/summary';
+  static const String workoutLive = '/workout/position-guide/live';
+  static const String workoutSummary = '/workout/position-guide/live/summary';
   static const String reports = '/reports';
   static const String profile = '/profile';
 }

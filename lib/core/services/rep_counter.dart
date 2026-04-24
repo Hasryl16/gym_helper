@@ -17,8 +17,13 @@ class RepCounter {
   double _minElbowAngleThisRep = 180.0;
   double _maxElbowAngleThisRep = 0.0;
 
+  // Captures the angles of the last completed rep BEFORE resetting for the
+  // next rep. Getters read from these so callers always see the completed
+  // rep's data, not the mid-reset zero values.
+  double _lastCompletedMinElbow = 180.0;
+  double _lastCompletedMaxElbow = 0.0;
+
   int get repCount => _count;
-  _RepState get state => _state;
 
   /// Reset counters and state machine.
   void reset() {
@@ -26,6 +31,8 @@ class RepCounter {
     _count = 0;
     _minElbowAngleThisRep = 180.0;
     _maxElbowAngleThisRep = 0.0;
+    _lastCompletedMinElbow = 180.0;
+    _lastCompletedMaxElbow = 0.0;
   }
 
   /// Feed a new [Pose] frame into the state machine.
@@ -55,6 +62,10 @@ class RepCounter {
       case _RepState.down:
         // User is coming back up — rep completed
         if (elbowAngle > ExerciseRules.pushupElbowExtended) {
+          // Capture completed-rep angles BEFORE resetting, so getters return
+          // the correct values when the provider reads them after this call.
+          _lastCompletedMinElbow = _minElbowAngleThisRep;
+          _lastCompletedMaxElbow = _maxElbowAngleThisRep;
           _count++;
           _state = _RepState.up;
           _resetRepAngles();
@@ -65,11 +76,11 @@ class RepCounter {
     return RepEvent.none;
   }
 
-  /// Min elbow angle recorded during the current/last rep (for form analysis).
-  double get lastMinElbow => _minElbowAngleThisRep;
+  /// Min elbow angle recorded during the last completed rep (for form analysis).
+  double get lastMinElbow => _lastCompletedMinElbow;
 
-  /// Max elbow angle recorded during the current/last rep.
-  double get lastMaxElbow => _maxElbowAngleThisRep;
+  /// Max elbow angle recorded during the last completed rep.
+  double get lastMaxElbow => _lastCompletedMaxElbow;
 
   void _resetRepAngles() {
     _minElbowAngleThisRep = 180.0;

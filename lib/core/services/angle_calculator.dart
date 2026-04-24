@@ -14,7 +14,9 @@ abstract final class AngleCalculator {
     if (shoulder == null || elbow == null || wrist == null) return null;
     if (!LandmarkMath.isReliable(shoulder) ||
         !LandmarkMath.isReliable(elbow) ||
-        !LandmarkMath.isReliable(wrist)) return null;
+        !LandmarkMath.isReliable(wrist)) {
+      return null;
+    }
     return LandmarkMath.angleAtVertex(shoulder, elbow, wrist);
   }
 
@@ -25,7 +27,9 @@ abstract final class AngleCalculator {
     if (shoulder == null || elbow == null || wrist == null) return null;
     if (!LandmarkMath.isReliable(shoulder) ||
         !LandmarkMath.isReliable(elbow) ||
-        !LandmarkMath.isReliable(wrist)) return null;
+        !LandmarkMath.isReliable(wrist)) {
+      return null;
+    }
     return LandmarkMath.angleAtVertex(shoulder, elbow, wrist);
   }
 
@@ -48,7 +52,9 @@ abstract final class AngleCalculator {
     if (shoulder == null || hip == null || knee == null) return null;
     if (!LandmarkMath.isReliable(shoulder) ||
         !LandmarkMath.isReliable(hip) ||
-        !LandmarkMath.isReliable(knee)) return null;
+        !LandmarkMath.isReliable(knee)) {
+      return null;
+    }
     return LandmarkMath.angleAtVertex(shoulder, hip, knee);
   }
 
@@ -59,7 +65,9 @@ abstract final class AngleCalculator {
     if (shoulder == null || hip == null || knee == null) return null;
     if (!LandmarkMath.isReliable(shoulder) ||
         !LandmarkMath.isReliable(hip) ||
-        !LandmarkMath.isReliable(knee)) return null;
+        !LandmarkMath.isReliable(knee)) {
+      return null;
+    }
     return LandmarkMath.angleAtVertex(shoulder, hip, knee);
   }
 
@@ -81,7 +89,9 @@ abstract final class AngleCalculator {
     if (elbow == null || shoulder == null || hip == null) return null;
     if (!LandmarkMath.isReliable(elbow) ||
         !LandmarkMath.isReliable(shoulder) ||
-        !LandmarkMath.isReliable(hip)) return null;
+        !LandmarkMath.isReliable(hip)) {
+      return null;
+    }
     return LandmarkMath.angleAtVertex(elbow, shoulder, hip);
   }
 
@@ -92,7 +102,9 @@ abstract final class AngleCalculator {
     if (elbow == null || shoulder == null || hip == null) return null;
     if (!LandmarkMath.isReliable(elbow) ||
         !LandmarkMath.isReliable(shoulder) ||
-        !LandmarkMath.isReliable(hip)) return null;
+        !LandmarkMath.isReliable(hip)) {
+      return null;
+    }
     return LandmarkMath.angleAtVertex(elbow, shoulder, hip);
   }
 }

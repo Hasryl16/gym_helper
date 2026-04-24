@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import '../../../../shared/theme/app_colors.dart';
@@ -9,11 +10,16 @@ class SkeletonPainter extends CustomPainter {
     required this.pose,
     required this.imageSize,
     required this.screenSize,
+    this.isFrontCamera = false,
   });
 
   final Pose pose;
   final Size imageSize;
   final Size screenSize;
+
+  /// Whether the active camera is front-facing. When true, X coordinates are
+  /// mirrored so the skeleton aligns with the mirrored camera preview.
+  final bool isFrontCamera;
 
   static const _connections = [
     // Face
@@ -89,10 +95,28 @@ class SkeletonPainter extends CustomPainter {
     }
   }
 
+  /// Convert a landmark coordinate (in image-pixel space) to screen space
+  /// using BoxFit.cover-equivalent uniform scaling so the overlay stays
+  /// aligned with the camera preview regardless of device aspect ratio.
   Offset _toScreen(double x, double y) {
-    final scaleX = screenSize.width / imageSize.width;
-    final scaleY = screenSize.height / imageSize.height;
-    return Offset(x * scaleX, y * scaleY);
+    // Uniform "cover" scale: use the larger of the two axis ratios so the
+    // image fills the screen with no letterboxing (same as BoxFit.cover).
+    final scale = math.max(
+      screenSize.width / imageSize.width,
+      screenSize.height / imageSize.height,
+    );
+    final scaledW = imageSize.width * scale;
+    final scaledH = imageSize.height * scale;
+    // Centred offset (negative when the scaled image overflows the screen).
+    final dx = (screenSize.width - scaledW) / 2;
+    final dy = (screenSize.height - scaledH) / 2;
+
+    // Mirror the X axis for front-facing cameras because the preview is
+    // rendered mirrored but ML Kit landmark X values are not.
+    if (isFrontCamera) {
+      return Offset(screenSize.width - (x * scale + dx), y * scale + dy);
+    }
+    return Offset(x * scale + dx, y * scale + dy);
   }
 
   static const _keyJoints = {
@@ -110,5 +134,8 @@ class SkeletonPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(SkeletonPainter oldDelegate) =>
-      oldDelegate.pose != pose;
+      oldDelegate.pose != pose ||
+      oldDelegate.imageSize != imageSize ||
+      oldDelegate.screenSize != screenSize ||
+      oldDelegate.isFrontCamera != isFrontCamera;
 }
