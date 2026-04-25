@@ -32,6 +32,13 @@ class FirestoreService {
     await _users.doc(user.uid).set(user.toFirestore(), SetOptions(merge: true));
   }
 
+  /// One-shot fetch of a user document (used for onboarding fallback check).
+  Future<UserModel?> getUser(String uid) async {
+    final snap = await _users.doc(uid).get();
+    if (!snap.exists || snap.data() == null) return null;
+    return UserModel.fromFirestore(snap, null);
+  }
+
   /// Real-time stream of the user document.
   Stream<UserModel?> watchUser(String uid) {
     return _users.doc(uid).snapshots().map((snap) {
