@@ -28,16 +28,25 @@ class AuthService {
   // ---------------------------------------------------------------------------
 
   /// Sign in with email and password.
-  /// Throws [AuthException] with a human-readable message on failure.
+  /// Upserts the Firestore user document so returning users always have one,
+  /// even if it was never created or was lost.
   Future<UserCredential> signInWithEmail({
     required String email,
     required String password,
   }) async {
     try {
-      return await _auth.signInWithEmailAndPassword(
+      final credential = await _auth.signInWithEmailAndPassword(
         email: email.trim(),
         password: password,
       );
+      final u = credential.user!;
+      await _firestore.createUserDoc(UserModel(
+        uid: u.uid,
+        email: u.email ?? email.trim(),
+        displayName: u.displayName ?? email.split('@').first,
+        createdAt: DateTime.now(),
+      ));
+      return credential;
     } on FirebaseAuthException catch (e) {
       throw AuthException.fromFirebaseCode(e.code);
     }
@@ -89,17 +98,17 @@ class AuthService {
       );
 
       final userCredential = await _auth.signInWithCredential(credential);
+      final u = userCredential.user!;
 
-      // Create user doc if new user
-      if (userCredential.additionalUserInfo?.isNewUser ?? false) {
-        await _firestore.createUserDoc(UserModel(
-          uid: userCredential.user!.uid,
-          email: userCredential.user!.email ?? '',
-          displayName: userCredential.user!.displayName ?? '',
-          createdAt: DateTime.now(),
-          photoUrl: userCredential.user!.photoURL,
-        ));
-      }
+      // Always upsert so returning users on a fresh install get their doc back.
+      // merge: true means existing fields (streak, level, etc.) are preserved.
+      await _firestore.createUserDoc(UserModel(
+        uid: u.uid,
+        email: u.email ?? '',
+        displayName: u.displayName ?? '',
+        createdAt: DateTime.now(),
+        photoUrl: u.photoURL,
+      ));
 
       return userCredential;
     } on FirebaseAuthException catch (e) {
