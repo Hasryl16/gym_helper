@@ -1,14 +1,17 @@
 import 'dart:async';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 
 import '../../../core/models/report_model.dart';
 import '../../../core/models/session_model.dart';
+import '../../../core/models/user_model.dart';
 import '../../../core/services/firestore_service.dart';
+import '../../../core/services/gemini_report_service.dart';
+import '../../../providers/user_provider.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/theme/app_spacing.dart';
 
@@ -68,14 +71,14 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   String _formatDuration(Duration d) =>
       '${d.inMinutes}m ${(d.inSeconds % 60).toString().padLeft(2, '0')}s';
 
-  /// Reset reportStatus to 'pending' so the Cloud Function trigger re-runs.
   Future<void> _retry() async {
+    final session = _session;
+    if (session == null) return;
     setState(() => _retrying = true);
     try {
-      await FirebaseFirestore.instance
-          .collection('sessions')
-          .doc(widget.sessionId)
-          .update({'reportStatus': 'pending'});
+      final level = context.read<UserProvider>().user?.fitnessLevel
+          ?? FitnessLevel.beginner;
+      await GeminiReportService().generateReport(session, level);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

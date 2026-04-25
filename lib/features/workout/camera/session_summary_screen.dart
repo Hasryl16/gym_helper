@@ -3,6 +3,8 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../../providers/workout_session_provider.dart';
+import '../../../providers/user_provider.dart';
+import '../../../core/models/user_model.dart';
 import '../../../routing/route_names.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/theme/app_spacing.dart';
@@ -155,7 +157,8 @@ class SessionSummaryScreen extends StatelessWidget {
               PrimaryButton(
                 label: 'Save & View Report',
                 onPressed: () async {
-                  await session.saveSession();
+                  final level = context.read<UserProvider>().user?.fitnessLevel;
+                  await session.saveSession(level: level ?? FitnessLevel.beginner);
                   if (context.mounted) {
                     context.go(RouteNames.reports);
                     session.resetSession();

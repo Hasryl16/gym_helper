@@ -5,12 +5,14 @@ import 'package:flutter/foundation.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import '../core/models/exercise_type.dart';
 import '../core/models/session_model.dart';
+import '../core/models/user_model.dart';
 import '../core/services/angle_calculator.dart';
 import '../core/services/form_analyzer.dart';
 import '../core/services/pose_service.dart';
 import '../core/services/rep_counter.dart';
 import '../core/services/session_recorder.dart';
 import '../core/services/firestore_service.dart';
+import '../core/services/gemini_report_service.dart';
 
 enum SessionState {
   idle,
@@ -31,6 +33,7 @@ class WorkoutSessionProvider extends ChangeNotifier {
   RepCounter? _repCounter;
   SessionRecorder? _sessionRecorder;
   final FirestoreService _firestoreService = FirestoreService();
+  final GeminiReportService _geminiService = GeminiReportService();
 
   // State
   SessionState _sessionState = SessionState.idle;
@@ -217,14 +220,18 @@ class WorkoutSessionProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Save last session to Firestore and return the session ID.
-  Future<String?> saveSession() async {
+  /// Save last session to Firestore and trigger Gemini report generation.
+  /// [level] is used to tailor the AI report tone.
+  Future<String?> saveSession({FitnessLevel level = FitnessLevel.beginner}) async {
     final session = _lastSession;
     if (session == null) return null;
     try {
       final id = await _firestoreService.createSession(session);
       _savedSessionId = id;
       notifyListeners();
+      // Fire-and-forget: generates the AI report in the background.
+      // ReportDetailScreen listens to reportStatus changes in real time.
+      _geminiService.generateReport(session, level);
       return id;
     } catch (e) {
       _errorMessage = 'Failed to save session: $e';
