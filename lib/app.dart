@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'providers/auth_provider.dart';
 import 'providers/onboarding_provider.dart';
+import 'providers/sessions_provider.dart';
 import 'providers/user_provider.dart';
 import 'providers/workout_session_provider.dart';
 import 'routing/app_router.dart';
@@ -20,6 +21,7 @@ class _GymHelperAppState extends State<GymHelperApp> {
   late final OnboardingProvider _onboardingProvider;
   late final UserProvider _userProvider;
   late final WorkoutSessionProvider _workoutProvider;
+  late final SessionsProvider _sessionsProvider;
 
   @override
   void initState() {
@@ -28,6 +30,7 @@ class _GymHelperAppState extends State<GymHelperApp> {
     _onboardingProvider = OnboardingProvider();
     _userProvider = UserProvider();
     _workoutProvider = WorkoutSessionProvider();
+    _sessionsProvider = SessionsProvider();
     // Load persisted onboarding state
     _onboardingProvider.init();
   }
@@ -38,6 +41,7 @@ class _GymHelperAppState extends State<GymHelperApp> {
     _onboardingProvider.dispose();
     _userProvider.dispose();
     _workoutProvider.dispose();
+    _sessionsProvider.dispose();
     super.dispose();
   }
 
@@ -70,6 +74,18 @@ class _GymHelperAppState extends State<GymHelperApp> {
         ),
         ChangeNotifierProvider<WorkoutSessionProvider>.value(
           value: _workoutProvider,
+        ),
+        ChangeNotifierProxyProvider<AppAuthProvider, SessionsProvider>(
+          create: (_) => _sessionsProvider,
+          update: (_, auth, sessionsProv) {
+            final provider = sessionsProv ?? _sessionsProvider;
+            if (auth.isAuthenticated && auth.user != null) {
+              provider.watchSessions(auth.user!.uid);
+            } else {
+              provider.clear();
+            }
+            return provider;
+          },
         ),
       ],
       child: Builder(

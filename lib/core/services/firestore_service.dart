@@ -88,18 +88,19 @@ class FirestoreService {
   // Reports
   // ---------------------------------------------------------------------------
 
-  /// Fetch a report by session ID.
+  /// Fetch a report by session ID (O(1) direct doc lookup).
   Stream<ReportModel?> watchReport(String sessionId) {
-    return _reports
-        .where('sessionId', isEqualTo: sessionId)
-        .limit(1)
-        .snapshots()
-        .map((snap) {
-      if (snap.docs.isEmpty) return null;
-      return ReportModel.fromFirestore(
-        snap.docs.first as DocumentSnapshot<Map<String, dynamic>>,
-        null,
-      );
+    return _reports.doc(sessionId).snapshots().map((snap) {
+      if (!snap.exists || snap.data() == null) return null;
+      return ReportModel.fromFirestore(snap, null);
+    });
+  }
+
+  /// Real-time stream of a single session document.
+  Stream<SessionModel?> watchSession(String sessionId) {
+    return _sessions.doc(sessionId).snapshots().map((snap) {
+      if (!snap.exists || snap.data() == null) return null;
+      return SessionModel.fromFirestore(snap, null);
     });
   }
 

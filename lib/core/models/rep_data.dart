@@ -27,4 +27,14 @@ class RepData {
         'maxElbowAngle': maxElbowAngle,
         'minHipAngle': minHipAngle,
       };
+
+  factory RepData.fromMap(Map<String, dynamic> map) => RepData(
+        repNumber: map['repNumber'] as int,
+        completedAt: DateTime.parse(map['completedAt'] as String),
+        formScore: (map['formScore'] as num).toDouble(),
+        errors: List<String>.from(map['errors'] as List? ?? []),
+        minElbowAngle: (map['minElbowAngle'] as num).toDouble(),
+        maxElbowAngle: (map['maxElbowAngle'] as num).toDouble(),
+        minHipAngle: (map['minHipAngle'] as num).toDouble(),
+      );
 }

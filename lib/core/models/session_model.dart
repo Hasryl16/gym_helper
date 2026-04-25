@@ -15,6 +15,7 @@ class SessionModel {
     required this.formScore,
     required this.commonErrors,
     required this.reps,
+    this.reportStatus = 'pending',
   });
 
   final String sessionId;
@@ -27,6 +28,7 @@ class SessionModel {
   final double formScore; // aggregate 0–100
   final List<String> commonErrors;
   final List<RepData> reps;
+  final String reportStatus;
 
   Duration get duration => endedAt.difference(startedAt);
 
@@ -48,7 +50,12 @@ class SessionModel {
       goodReps: data['goodReps'] as int,
       formScore: (data['formScore'] as num).toDouble(),
       commonErrors: List<String>.from(data['commonErrors'] as List? ?? []),
-      reps: const [], // reps stored in sub-collection for large sets
+      reps: (data['reps'] as List?)
+              ?.map((m) =>
+                  RepData.fromMap(Map<String, dynamic>.from(m as Map)))
+              .toList() ??
+          const [],
+      reportStatus: data['reportStatus'] as String? ?? 'pending',
     );
   }
 
@@ -61,5 +68,35 @@ class SessionModel {
         'goodReps': goodReps,
         'formScore': formScore,
         'commonErrors': commonErrors,
+        'reps': reps.map((r) => r.toMap()).toList(),
+        'reportStatus': reportStatus,
       };
+
+  SessionModel copyWith({
+    String? sessionId,
+    String? userId,
+    ExerciseType? exerciseType,
+    DateTime? startedAt,
+    DateTime? endedAt,
+    int? totalReps,
+    int? goodReps,
+    double? formScore,
+    List<String>? commonErrors,
+    List<RepData>? reps,
+    String? reportStatus,
+  }) {
+    return SessionModel(
+      sessionId: sessionId ?? this.sessionId,
+      userId: userId ?? this.userId,
+      exerciseType: exerciseType ?? this.exerciseType,
+      startedAt: startedAt ?? this.startedAt,
+      endedAt: endedAt ?? this.endedAt,
+      totalReps: totalReps ?? this.totalReps,
+      goodReps: goodReps ?? this.goodReps,
+      formScore: formScore ?? this.formScore,
+      commonErrors: commonErrors ?? this.commonErrors,
+      reps: reps ?? this.reps,
+      reportStatus: reportStatus ?? this.reportStatus,
+    );
+  }
 }

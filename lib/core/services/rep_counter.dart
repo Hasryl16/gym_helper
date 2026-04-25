@@ -1,91 +1,142 @@
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import '../constants/exercise_rules.dart';
+import '../models/exercise_type.dart';
 import 'angle_calculator.dart';
 
 /// Events emitted when rep state changes.
 enum RepEvent { none, repCompleted, positionCheck }
 
-/// Push-up rep counter using a strict state machine.
+/// Rep counter using a per-exercise state machine.
 ///
-/// State transitions:
-///   waiting → up   (elbow > [ExerciseRules.pushupElbowExtended])
-///   up       → down (elbow < [ExerciseRules.pushupElbowFlexed])
-///   down     → up   (elbow > [ExerciseRules.pushupElbowExtended]) → emits repCompleted
+/// Push-up  — tracks elbow angle (extended → flexed → extended).
+/// Sit-up   — tracks hip angle  (extended/lying → flexed/sitting → extended).
+/// Pull-up  — tracks elbow angle (extended → flexed → extended).
 class RepCounter {
+  RepCounter({this.exerciseType = ExerciseType.pushup});
+
+  final ExerciseType exerciseType;
+
   _RepState _state = _RepState.waiting;
   int _count = 0;
-  double _minElbowAngleThisRep = 180.0;
-  double _maxElbowAngleThisRep = 0.0;
 
-  // Captures the angles of the last completed rep BEFORE resetting for the
-  // next rep. Getters read from these so callers always see the completed
-  // rep's data, not the mid-reset zero values.
-  double _lastCompletedMinElbow = 180.0;
-  double _lastCompletedMaxElbow = 0.0;
+  double _minPrimaryThisRep = 180.0;
+  double _maxPrimaryThisRep = 0.0;
+  double _lastCompletedMin = 180.0;
+  double _lastCompletedMax = 0.0;
 
   int get repCount => _count;
 
-  /// Reset counters and state machine.
+  /// Min primary angle of the last completed rep (elbow for push/pull, hip for sit).
+  double get lastMinAngle => _lastCompletedMin;
+  double get lastMaxAngle => _lastCompletedMax;
+
+  // Keep named getters so existing call-sites compile unchanged.
+  double get lastMinElbow => _lastCompletedMin;
+  double get lastMaxElbow => _lastCompletedMax;
+  double get lastMinHip => _lastCompletedMin;
+
   void reset() {
     _state = _RepState.waiting;
     _count = 0;
-    _minElbowAngleThisRep = 180.0;
-    _maxElbowAngleThisRep = 0.0;
-    _lastCompletedMinElbow = 180.0;
-    _lastCompletedMaxElbow = 0.0;
+    _minPrimaryThisRep = 180.0;
+    _maxPrimaryThisRep = 0.0;
+    _lastCompletedMin = 180.0;
+    _lastCompletedMax = 0.0;
   }
 
   /// Feed a new [Pose] frame into the state machine.
-  /// Returns a [RepEvent] indicating if something notable happened.
   RepEvent processPose(Pose pose) {
-    final elbowAngle = AngleCalculator.elbowAverage(pose);
-    if (elbowAngle == null) return RepEvent.none;
+    switch (exerciseType) {
+      case ExerciseType.situp:
+        return _processSitup(pose);
+      case ExerciseType.pushup:
+      case ExerciseType.pullup:
+        return _processPushupOrPullup(pose);
+    }
+  }
 
-    // Track extremes for this rep
-    if (elbowAngle < _minElbowAngleThisRep) _minElbowAngleThisRep = elbowAngle;
-    if (elbowAngle > _maxElbowAngleThisRep) _maxElbowAngleThisRep = elbowAngle;
+  // ---------------------------------------------------------------------------
+  // Push-up / Pull-up  (elbow angle: waiting → up → down → up = rep)
+  // ---------------------------------------------------------------------------
+
+  RepEvent _processPushupOrPullup(Pose pose) {
+    final angle = exerciseType == ExerciseType.pullup
+        ? AngleCalculator.elbowAverage(pose)
+        : AngleCalculator.elbowAverage(pose);
+    if (angle == null) return RepEvent.none;
+
+    _trackExtremes(angle);
+
+    final extendedThreshold = exerciseType == ExerciseType.pullup
+        ? ExerciseRules.pullupElbowExtended
+        : ExerciseRules.pushupElbowExtended;
+    final flexedThreshold = exerciseType == ExerciseType.pullup
+        ? ExerciseRules.pullupElbowFlexed
+        : ExerciseRules.pushupElbowFlexed;
 
     switch (_state) {
       case _RepState.waiting:
-        // Wait until user is in the starting "up" position
-        if (elbowAngle > ExerciseRules.pushupElbowExtended) {
-          _state = _RepState.up;
+        if (angle > extendedThreshold) {
+          _state = _RepState.extended;
           _resetRepAngles();
         }
-
-      case _RepState.up:
-        // User is going down
-        if (elbowAngle < ExerciseRules.pushupElbowFlexed) {
-          _state = _RepState.down;
-        }
-
-      case _RepState.down:
-        // User is coming back up — rep completed
-        if (elbowAngle > ExerciseRules.pushupElbowExtended) {
-          // Capture completed-rep angles BEFORE resetting, so getters return
-          // the correct values when the provider reads them after this call.
-          _lastCompletedMinElbow = _minElbowAngleThisRep;
-          _lastCompletedMaxElbow = _maxElbowAngleThisRep;
-          _count++;
-          _state = _RepState.up;
-          _resetRepAngles();
-          return RepEvent.repCompleted;
-        }
+      case _RepState.extended:
+        if (angle < flexedThreshold) _state = _RepState.flexed;
+      case _RepState.flexed:
+        if (angle > extendedThreshold) return _completeRep();
     }
-
     return RepEvent.none;
   }
 
-  /// Min elbow angle recorded during the last completed rep (for form analysis).
-  double get lastMinElbow => _lastCompletedMinElbow;
+  // ---------------------------------------------------------------------------
+  // Sit-up  (torso angle from horizontal: 0°=lying, 90°=upright)
+  //   waiting  → extended (torso < situpTorsoLying = recognise start position)
+  //   extended → flexed   (torso > situpTorsoUp    = fully sitting up)
+  //   flexed   → extended (torso < situpTorsoLying  = back down → rep counted)
+  // ---------------------------------------------------------------------------
 
-  /// Max elbow angle recorded during the last completed rep.
-  double get lastMaxElbow => _lastCompletedMaxElbow;
+  RepEvent _processSitup(Pose pose) {
+    final angle = AngleCalculator.torsoAngleFromHorizontal(pose);
+    if (angle == null) return RepEvent.none;
+
+    _trackExtremes(angle);
+
+    switch (_state) {
+      case _RepState.waiting:
+        if (angle < ExerciseRules.situpTorsoLying) {
+          _state = _RepState.extended;
+          _resetRepAngles();
+        }
+      case _RepState.extended:
+        if (angle > ExerciseRules.situpTorsoUp) _state = _RepState.flexed;
+      case _RepState.flexed:
+        if (angle < ExerciseRules.situpTorsoLying) return _completeRep();
+    }
+    return RepEvent.none;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Helpers
+  // ---------------------------------------------------------------------------
+
+  RepEvent _completeRep() {
+    _lastCompletedMin = _minPrimaryThisRep;
+    _lastCompletedMax = _maxPrimaryThisRep;
+    _count++;
+    _state = _RepState.extended;
+    _resetRepAngles();
+    return RepEvent.repCompleted;
+  }
+
+  void _trackExtremes(double angle) {
+    if (angle < _minPrimaryThisRep) _minPrimaryThisRep = angle;
+    if (angle > _maxPrimaryThisRep) _maxPrimaryThisRep = angle;
+  }
 
   void _resetRepAngles() {
-    _minElbowAngleThisRep = 180.0;
-    _maxElbowAngleThisRep = 0.0;
+    _minPrimaryThisRep = 180.0;
+    _maxPrimaryThisRep = 0.0;
   }
 }
 
-enum _RepState { waiting, up, down }
+enum _RepState { waiting, extended, flexed }

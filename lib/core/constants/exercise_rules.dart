@@ -17,13 +17,18 @@ abstract final class ExerciseRules {
   static const double pushupMinRom = 100.0;
 
   // ---------------------------------------------------------------------------
-  // Sit-up thresholds (for Phase 3 implementation)
+  // Sit-up thresholds — based on torso angle from horizontal
+  // (0° = lying flat, 90° = fully upright; works for bent-knee and straight-leg)
   // ---------------------------------------------------------------------------
 
-  /// Hip angle at top (sitting up).
-  static const double situpHipFlexed = 80.0;
+  /// Torso angle below which the person is considered lying down (start/end position).
+  static const double situpTorsoLying = 25.0;
 
-  /// Hip angle at bottom (lying down).
+  /// Torso angle above which the person is considered sitting up (top position).
+  static const double situpTorsoUp = 45.0;
+
+  // Legacy hip-angle constants kept for compatibility.
+  static const double situpHipFlexed = 80.0;
   static const double situpHipExtended = 150.0;
 
   // ---------------------------------------------------------------------------

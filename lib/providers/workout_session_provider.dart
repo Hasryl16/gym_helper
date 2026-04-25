@@ -78,6 +78,9 @@ class WorkoutSessionProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Convenience alias — sets the exercise type with the default target reps.
+  void selectExercise(ExerciseType type) => configureExercise(type);
+
   // ---------------------------------------------------------------------------
   // Camera
   // ---------------------------------------------------------------------------
@@ -183,7 +186,7 @@ class WorkoutSessionProvider extends ChangeNotifier {
       return;
     }
 
-    _repCounter = RepCounter();
+    _repCounter = RepCounter(exerciseType: _exerciseType);
     _sessionRecorder = SessionRecorder(
       userId: userId,
       exerciseType: _exerciseType,
@@ -268,21 +271,25 @@ class WorkoutSessionProvider extends ChangeNotifier {
       if (event == RepEvent.repCompleted) {
         _repCount = _repCounter!.repCount;
 
-        // Analyze form for this rep
-        final result = FormAnalyzer.analyzePushup(
-          pose,
-          _repCounter!.lastMinElbow,
-        );
+        // Analyze form for this rep (exercise-type aware)
+        final result = _exerciseType == ExerciseType.situp
+            ? FormAnalyzer.analyzeSitup(pose, _repCounter!.lastMaxAngle)
+            : FormAnalyzer.analyzePushup(pose, _repCounter!.lastMinElbow);
 
-        // Get hip angle for recording
         final hipAngle = AngleCalculator.hipAverage(pose) ?? 180.0;
 
         _sessionRecorder!.recordRep(
           formScore: result.score,
           errors: result.errors,
-          minElbowAngle: _repCounter!.lastMinElbow,
-          maxElbowAngle: _repCounter!.lastMaxElbow,
-          minHipAngle: hipAngle,
+          minElbowAngle: _exerciseType == ExerciseType.situp
+              ? 180.0
+              : _repCounter!.lastMinElbow,
+          maxElbowAngle: _exerciseType == ExerciseType.situp
+              ? 180.0
+              : _repCounter!.lastMaxElbow,
+          minHipAngle: _exerciseType == ExerciseType.situp
+              ? _repCounter!.lastMinHip
+              : hipAngle,
         );
 
         // Update running form score (rolling average)
@@ -291,10 +298,9 @@ class WorkoutSessionProvider extends ChangeNotifier {
         _activeCue = result.activeCue;
       } else {
         // Continuous form feedback even between reps
-        final check = FormAnalyzer.analyzePushup(
-          pose,
-          _repCounter!.lastMinElbow,
-        );
+        final check = _exerciseType == ExerciseType.situp
+            ? FormAnalyzer.analyzeSitup(pose, _repCounter!.lastMaxAngle)
+            : FormAnalyzer.analyzePushup(pose, _repCounter!.lastMinElbow);
         _activeCue = check.activeCue;
       }
 

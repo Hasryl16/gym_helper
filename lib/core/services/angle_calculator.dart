@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import '../utils/landmark_math.dart';
 
@@ -106,5 +107,45 @@ abstract final class AngleCalculator {
       return null;
     }
     return LandmarkMath.angleAtVertex(elbow, shoulder, hip);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Torso angle from horizontal (for sit-up detection)
+  // ---------------------------------------------------------------------------
+
+  /// Returns how many degrees the torso has risen from horizontal.
+  /// 0° = lying flat, 90° = fully upright.
+  /// Uses the midpoint of shoulders and hips so it works from any camera side.
+  /// Accepts landmarks with likelihood >= 0.35 to stay stable when lying flat.
+  static double? torsoAngleFromHorizontal(Pose pose) {
+    final ls = pose.landmarks[PoseLandmarkType.leftShoulder];
+    final rs = pose.landmarks[PoseLandmarkType.rightShoulder];
+    final lh = pose.landmarks[PoseLandmarkType.leftHip];
+    final rh = pose.landmarks[PoseLandmarkType.rightHip];
+
+    // Need at least one shoulder and one hip that are sufficiently visible.
+    const minLikelihood = 0.35;
+    final shoulders = [
+      if (ls != null && ls.likelihood >= minLikelihood) ls,
+      if (rs != null && rs.likelihood >= minLikelihood) rs,
+    ];
+    final hips = [
+      if (lh != null && lh.likelihood >= minLikelihood) lh,
+      if (rh != null && rh.likelihood >= minLikelihood) rh,
+    ];
+    if (shoulders.isEmpty || hips.isEmpty) return null;
+
+    final midShoulderX = shoulders.map((l) => l.x).reduce((a, b) => a + b) / shoulders.length;
+    final midShoulderY = shoulders.map((l) => l.y).reduce((a, b) => a + b) / shoulders.length;
+    final midHipX = hips.map((l) => l.x).reduce((a, b) => a + b) / hips.length;
+    final midHipY = hips.map((l) => l.y).reduce((a, b) => a + b) / hips.length;
+
+    // Torso vector: hip → shoulder.
+    // In image coords y increases downward, so dy is negative when sitting up
+    // (shoulder rises above hip).
+    final dx = (midShoulderX - midHipX).abs();
+    final dy = midHipY - midShoulderY; // positive = shoulder is above hip
+
+    return math.atan2(dy, dx) * (180.0 / math.pi);
   }
 }

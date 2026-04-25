@@ -20,4 +20,6 @@ abstract final class RouteNames {
   static const String workoutSummary = '/workout/position-guide/live/summary';
   static const String reports = '/reports';
   static const String profile = '/profile';
+  static const String reportDetail = '/report/:sessionId';
+  static String reportDetailFor(String sessionId) => '/report/$sessionId';
 }

@@ -14,6 +14,7 @@ import '../features/workout/position_guide/position_guide_screen.dart';
 import '../features/workout/camera/live_camera_screen.dart';
 import '../features/workout/camera/session_summary_screen.dart';
 import '../features/reports/screens/reports_list_screen.dart';
+import '../features/reports/screens/report_detail_screen.dart';
 import '../features/profile/screens/profile_screen.dart';
 import 'main_shell.dart';
 import 'route_names.dart';
@@ -87,6 +88,14 @@ class AppRouter {
         GoRoute(
           path: RouteNames.onboardingCamera,
           builder: (_, __) => const CameraPermissionScreen(),
+        ),
+
+        // --------------- Report Detail (outside shell) ---------------
+        GoRoute(
+          path: '/report/:sessionId',
+          builder: (context, state) => ReportDetailScreen(
+            sessionId: state.pathParameters['sessionId']!,
+          ),
         ),
 
         // --------------- Main Shell (tabs) ---------------

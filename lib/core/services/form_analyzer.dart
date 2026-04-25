@@ -16,7 +16,7 @@ class FormCheckResult {
   final String? activeCue; // message to show in the cue banner
 }
 
-/// Analyzes push-up form from a [Pose] frame.
+/// Analyzes exercise form from a [Pose] frame.
 /// Returns a [FormCheckResult] with errors and per-rep score.
 abstract final class FormAnalyzer {
   /// Evaluate form during a push-up.
@@ -55,6 +55,46 @@ abstract final class FormAnalyzer {
         .clamp(0.0, 100.0);
 
     // Highest-priority cue message
+    final activeCue = errors.isNotEmpty
+        ? FormErrorCodes.cueMessages[errors.first]
+        : null;
+
+    return FormCheckResult(
+      errors: errors,
+      score: score,
+      activeCue: activeCue,
+    );
+  }
+
+  /// Evaluate form during a sit-up.
+  ///
+  /// [pose] — current smoothed pose.
+  /// [maxTorsoAngle] — peak torso-from-horizontal angle this rep (higher = more upright).
+  static FormCheckResult analyzeSitup(Pose pose, double maxTorsoAngle) {
+    final errors = <String>[];
+
+    // Check 1: Partial range — torso never reached the "up" threshold
+    if (maxTorsoAngle < ExerciseRules.situpTorsoUp) {
+      errors.add(FormErrorCodes.partialRange);
+    }
+
+    // Check 2: Neck strain — nose too far ahead of shoulders (side-view camera)
+    final nose = pose.landmarks[PoseLandmarkType.nose];
+    final leftShoulder = pose.landmarks[PoseLandmarkType.leftShoulder];
+    final rightShoulder = pose.landmarks[PoseLandmarkType.rightShoulder];
+    if (nose != null && leftShoulder != null && rightShoulder != null) {
+      final shoulderX = (leftShoulder.x + rightShoulder.x) / 2.0;
+      // In a side view, the nose x-coordinate being far ahead of the shoulder
+      // x-coordinate indicates the head is being pulled forward (neck strain).
+      if ((nose.x - shoulderX).abs() > 80) {
+        errors.add(FormErrorCodes.neckStrain);
+      }
+    }
+
+    final score = (ExerciseRules.baseScore -
+            errors.length * ExerciseRules.errorPenalty)
+        .clamp(0.0, 100.0);
+
     final activeCue = errors.isNotEmpty
         ? FormErrorCodes.cueMessages[errors.first]
         : null;
